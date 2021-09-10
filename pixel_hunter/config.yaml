@@ -1,0 +1,4 @@
+# Default config
+
+site_name: 'pixel hunter'
+db_uri: postgresql://pixel_hunter:pixel_hunter@localhost/pixel_hunter
