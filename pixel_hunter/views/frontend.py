@@ -1,12 +1,12 @@
 import hashlib
 import io
+import json
+from collections import defaultdict
 
 from PIL import Image
-from aiohttp import web
-from aiohttp_jinja2 import template
+from aiohttp_jinja2 import template, render_template
 from sqlalchemy import select
 from sqlalchemy import insert
-
 
 from .. import db
 
@@ -27,24 +27,18 @@ def count_colors(image_content):
     width, height = image.size
     rgb_image = image.convert('RGB')
 
-    colors_counter = {}
+    colors_counter = defaultdict(int)
 
     for x in range(width):
         for y in range(height):
             rgb = rgb_image.getpixel((x, y))
             hex_rgb = rgb_to_hex(rgb)
-            if hex_rgb in colors_counter:
-                colors_counter[hex_rgb] += 1
-            else:
-                colors_counter[hex_rgb] = 0
+            colors_counter[hex_rgb] += 1
 
     return colors_counter
 
 
-async def upload_image(request):
-    post = await request.post()
-    image = post.get('image')
-
+async def process_image(request, image):
     if image:
         image_content = image.file.read()
         hash = hashlib.sha224(image_content).hexdigest()
@@ -54,28 +48,52 @@ async def upload_image(request):
             result = await conn.fetch(query)
 
             if result:
-                colors = dict(result[0])['colors']
-                return web.Response(body=hash)
+                return json.loads(dict(result[0])['colors'])
 
         colors = count_colors(image_content)
-        stmt = insert(db.image_color).values({'id': hash, 'colors': colors})
+
+        statement = insert(db.image_color).values({'id': hash, 'colors': colors})
 
         async with request.app['db'].acquire() as conn:
-            await conn.execute(stmt, hash, str(colors))
-            return web.Response(text=hash)
-
-    return web.Response(text='Nothing happened')
+            await conn.execute(statement, hash, str(colors))
+            return colors
 
 
-async def is_black_or_white_more(request):
-    hash = request.match_info['hash']
+async def upload_image_get_colors(request):
+    post = await request.post()
+    image = post.get('image')
 
-    async with request.app['db'].acquire() as conn:
-        query = select(db.image_color).filter_by(id=hash)
-        result = await conn.fetch(query)
+    if not image:
+        return render_template('index.html', request, context={'error': 'Image is required!'})
 
-        if result:
-            colors = dict(result[0])['colors']
-            return web.Response(body=str(colors))
+    colors_counter = await process_image(request, image)
 
-    return web.Response(text='Not found!')
+    context = {}
+
+    if colors_counter:
+        context['is_submited'] = True
+
+    bw = post.get('bw')
+    color = post.get('color')
+
+    if bw:
+        context['blacks_or_whites'] = get_blacks_or_whites_more(colors_counter)
+
+    if color:
+        context['color_amount'] = {
+            'color': color,
+            'amount': get_hex_color_amount(colors_counter, color),
+        }
+
+    return render_template('index.html', request, context=context)
+
+
+def get_blacks_or_whites_more(colors_counter, black='000000', white='ffffff'):
+    if colors_counter[black] == colors_counter[white]:
+        return 'same'
+
+    return 'blacks' if colors_counter[black] > colors_counter[white] else 'whites'
+
+
+def get_hex_color_amount(colors_counter, color):
+    return colors_counter[color]
