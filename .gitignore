@@ -4,3 +4,5 @@ __pycache__
 venv/
 *.png
 *.jpg
+local.yaml
+venv2/
