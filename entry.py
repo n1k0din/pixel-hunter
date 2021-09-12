@@ -1,6 +1,9 @@
+import logging
+
 import aiohttp
 import argparse
 import asyncio
+
 
 try:
     import uvloop
@@ -29,4 +32,5 @@ if args.reload:
 
 
 if __name__ == '__main__':
-    aiohttp.web.run_app(app, host=args.host, port=args.port)
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s')
+    aiohttp.web.run_app(app, host=args.host, port=args.port, access_log=None)

@@ -1,6 +1,7 @@
 import hashlib
 import io
 import json
+import logging
 from collections import defaultdict
 
 from PIL import Image, UnidentifiedImageError
@@ -66,20 +67,33 @@ def render_error(request, error, template='index.html'):
     })
 
 
+def log_response(payload):
+    template = '{}'
+    logging.info(template.format(payload))
+
+
 async def upload_image_get_colors(request):
+    logging.info(f'Post request from {request.remote}')
+
     try:
         post = await request.post()
     except HTTPRequestEntityTooLarge:
-        return render_error(request, 'File is too large!')
+        error_msg = 'File is too large!'
+        log_response({'error': error_msg})
+        return render_error(request, error_msg)
 
     image = post.get('image')
 
     if not image:
-        return render_error(request, 'Image is required!')
+        error_msg = 'Image is required!'
+        log_response({'error': error_msg})
+        return render_error(request, error_msg)
 
     try:
         colors_counter = await process_image(request, image)
     except UnidentifiedImageError:
+        error_msg = 'Image not recognized!'
+        log_response({'error': error_msg})
         return render_error(request, 'Image not recognized!')
 
     context = {}
@@ -100,6 +114,7 @@ async def upload_image_get_colors(request):
             'amount': get_hex_color_amount(colors_counter, color_key),
         }
 
+    log_response(context)
     return render_template('index.html', request, context=context)
 
 
@@ -107,7 +122,7 @@ def get_blacks_or_whites_more(colors_counter, black='000000', white='ffffff'):
     if colors_counter.get(black, 0) == colors_counter.get(white, 0):
         return 'same'
 
-    return 'blacks' if colors_counter[black] > colors_counter[white] else 'whites'
+    return 'blacks' if colors_counter.get(black, 0) > colors_counter.get(white, 0) else 'whites'
 
 
 def get_hex_color_amount(colors_counter, color):
