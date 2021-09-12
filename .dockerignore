@@ -1,0 +1,10 @@
+.git
+.gitignore
+.mypy_cache
+*.png
+*.jpg
+local.yaml
+venv/
+venv2/
+docker-compose.yml
+Dockerfile

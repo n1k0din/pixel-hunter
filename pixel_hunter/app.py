@@ -24,7 +24,10 @@ async def create_app(config=None):
 
 async def on_start(app):
     config = app['config']
-    app['db'] = await asyncpgsa.create_pool(dsn=config['db_uri'])
+    try:
+        app['db'] = await asyncpgsa.create_pool(dsn=config['db_uri'])
+    except OSError:
+        exit('Cannot connect to db')
 
 
 async def on_shutdown(app):
