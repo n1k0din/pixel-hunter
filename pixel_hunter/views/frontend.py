@@ -80,20 +80,21 @@ async def upload_image_get_colors(request):
         context['blacks_or_whites'] = get_blacks_or_whites_more(colors_counter)
 
     if color:
+        color_key = color.lstrip('#').lower()        
         context['color_amount'] = {
             'color': color,
-            'amount': get_hex_color_amount(colors_counter, color),
+            'amount': get_hex_color_amount(colors_counter, color_key),
         }
 
     return render_template('index.html', request, context=context)
 
 
 def get_blacks_or_whites_more(colors_counter, black='000000', white='ffffff'):
-    if colors_counter[black] == colors_counter[white]:
+    if colors_counter.get(black, 0) == colors_counter.get(white, 0):
         return 'same'
 
     return 'blacks' if colors_counter[black] > colors_counter[white] else 'whites'
 
 
 def get_hex_color_amount(colors_counter, color):
-    return colors_counter[color]
+    return colors_counter.get(color, 0)
