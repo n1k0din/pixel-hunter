@@ -3,10 +3,11 @@ import io
 import json
 from collections import defaultdict
 
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
+from aiohttp.web_exceptions import HTTPRequestEntityTooLarge
 from aiohttp_jinja2 import template, render_template
-from sqlalchemy import select
 from sqlalchemy import insert
+from sqlalchemy import select
 
 from .. import db
 
@@ -59,14 +60,27 @@ async def process_image(request, image):
             return colors
 
 
+def render_error(request, error, template='index.html'):
+    return render_template(template, request, context={
+        'error': error,
+    })
+
+
 async def upload_image_get_colors(request):
-    post = await request.post()
+    try:
+        post = await request.post()
+    except HTTPRequestEntityTooLarge:
+        return render_error(request, 'File is too large!')
+
     image = post.get('image')
 
     if not image:
-        return render_template('index.html', request, context={'error': 'Image is required!'})
+        return render_error(request, 'Image is required!')
 
-    colors_counter = await process_image(request, image)
+    try:
+        colors_counter = await process_image(request, image)
+    except UnidentifiedImageError:
+        return render_error(request, 'Image not recognized!')
 
     context = {}
 
@@ -80,7 +94,7 @@ async def upload_image_get_colors(request):
         context['blacks_or_whites'] = get_blacks_or_whites_more(colors_counter)
 
     if color:
-        color_key = color.lstrip('#').lower()        
+        color_key = color.lstrip('#').lower()
         context['color_amount'] = {
             'color': color,
             'amount': get_hex_color_amount(colors_counter, color_key),

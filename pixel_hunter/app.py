@@ -6,7 +6,7 @@ from aiohttp import web
 from .routes import setup_routes
 
 MB = 1024 ** 2
-MAX_POST_SIZE = 20 * MB
+MAX_POST_SIZE = 10 * MB
 
 
 async def create_app(config=None):
